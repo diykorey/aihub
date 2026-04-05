@@ -1,0 +1,39 @@
+[project]
+name = "aihub-backend"
+version = "0.1.0"
+description = "AI Hub backend — FastAPI + PostgreSQL + SQLAlchemy"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]>=0.135.1",
+    "openai>=2.28.0",
+    "sqlalchemy>=2.0.48",
+    "uvicorn>=0.42.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.0.2",
+    "ruff>=0.15.6",
+    "ty>=0.0.23",
+]
+
+# ---------------------------------------------------------------------------
+# Tooling
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "PTH"]
+ignore = ["D", "COM812", "ISC001", "B008"]  # B008: Depends() in defaults is canonical FastAPI
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
+
+[tool.ty.environment]
+python-version = "3.12"
