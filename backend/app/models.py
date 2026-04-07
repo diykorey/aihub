@@ -45,9 +45,7 @@ class Insight(Base):
     week: Mapped[int] = mapped_column(Integer, index=True)
     year: Mapped[int] = mapped_column(Integer, index=True)
     status: Mapped[str] = mapped_column(String(50), default="published")
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(tz=UTC)
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(tz=UTC))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(tz=UTC), onupdate=lambda: datetime.now(tz=UTC)
     )
@@ -84,9 +82,7 @@ class AgentRun(Base):
     success: Mapped[bool] = mapped_column(Boolean, default=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     duration_s: Mapped[float | None] = mapped_column(Float, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(tz=UTC)
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(tz=UTC))
 
     insight_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("insights.id"), nullable=True, index=True
