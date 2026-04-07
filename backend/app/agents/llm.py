@@ -109,6 +109,7 @@ def _chat_grok(user_prompt: str, system_prompt: str) -> str:
 
 def _chat_anthropic(user_prompt: str, system_prompt: str) -> str:
     from anthropic import Anthropic
+    from anthropic.types import TextBlock
 
     base_url = os.getenv("ANTHROPIC_BASE_URL") or None
     client = Anthropic(
@@ -122,7 +123,10 @@ def _chat_anthropic(user_prompt: str, system_prompt: str) -> str:
         system=system_prompt,
         messages=[{"role": "user", "content": user_prompt}],
     )
-    return response.content[0].text if response.content else ""
+    for block in response.content:
+        if isinstance(block, TextBlock):
+            return block.text
+    return ""
 
 
 def _chat_gemini(user_prompt: str, system_prompt: str) -> str:
