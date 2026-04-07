@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
@@ -39,47 +40,55 @@ class InsightOrchestrator:
     flushed.
     """
 
-    _pipeline: list[BaseAgent] = [
-        TrendExtractionAgent(),
-        ReasoningAgent(),
-        ExampleGeneratorAgent(),
-        DebateGeneratorAgent(),
-        ReviewAgent(),
-    ]
-
     def __init__(self, db: Session) -> None:
         self.db = db
+        self._pipeline: tuple[BaseAgent, ...] = (
+            TrendExtractionAgent(),
+            ReasoningAgent(),
+            ExampleGeneratorAgent(),
+            DebateGeneratorAgent(),
+            ReviewAgent(),
+        )
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
     def run(self, source_text: str) -> Insight:
-        """Execute the full pipeline and return a persisted Insight (status=draft)."""
+        """Execute the full pipeline and return a persisted Insight.
+
+        Status is set to 'draft' if the review agent passes, 'review_failed' otherwise.
+        """
         context = AgentContext(source_text=source_text)
-        run_logs: list[AgentResult] = []
+        run_logs: list[tuple[AgentResult, float]] = []
 
         for agent in self._pipeline:
-            result = agent.run(context)
-            run_logs.append(result)
-            # Non-fatal: log failure but continue so downstream agents can
-            # fill in what they can with partial context.
+            t0 = time.monotonic()
+            try:
+                result = agent.run(context)
+            except Exception as exc:
+                result = AgentResult(
+                    agent_name=agent.name, success=False, output={}, error=str(exc)
+                )
+            duration_s = time.monotonic() - t0
+            run_logs.append((result, duration_s))
 
         year, week = _current_week()
+        status = "draft" if context.review_passed else "review_failed"
         insight = Insight(
             title=context.title or "Untitled Insight",
             summary=context.summary or "",
             reasoning=context.reasoning or None,
-            examples=json.dumps(context.examples) if context.examples else None,
-            perspectives=json.dumps(context.perspectives) if context.perspectives else None,
+            examples=context.examples or None,
+            perspectives=context.perspectives or None,
             week=week,
             year=year,
-            status="draft",  # requires admin review before publishing
+            status=status,
         )
         self.db.add(insight)
         self.db.flush()  # get insight.id
 
-        for result in run_logs:
+        for result, duration_s in run_logs:
             self.db.add(
                 AgentRun(
                     insight_id=insight.id,
@@ -88,6 +97,7 @@ class InsightOrchestrator:
                     output=json.dumps(result.output),
                     success=result.success,
                     error=result.error,
+                    duration_s=round(duration_s, 3),
                 )
             )
 

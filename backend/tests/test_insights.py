@@ -157,3 +157,65 @@ def test_get_digest() -> None:
 def test_get_digest_not_found() -> None:
     response = client.get("/digest/2026/99")
     assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# GET /insights — pagination
+# ---------------------------------------------------------------------------
+
+
+def test_list_insights_with_limit() -> None:
+    response = client.get("/insights?limit=1")
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+
+
+def test_list_insights_with_offset() -> None:
+    response = client.get("/insights?offset=1&limit=10")
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+
+
+def test_list_insights_offset_beyond_results() -> None:
+    response = client.get("/insights?offset=100")
+    assert response.status_code == 200
+    assert len(response.json()) == 0
+
+
+# ---------------------------------------------------------------------------
+# PATCH /insights/{id}/status
+# ---------------------------------------------------------------------------
+
+
+def test_publish_draft_insight() -> None:
+    # given
+    response = client.get("/insights/3")
+    assert response.json()["status"] == "draft"
+
+    # when
+    response = client.patch("/insights/3/status", json={"status": "published"})
+
+    # then
+    assert response.status_code == 200
+    assert response.json()["status"] == "published"
+
+
+def test_publish_auto_assigns_digest() -> None:
+    # when
+    response = client.patch("/insights/3/status", json={"status": "published"})
+
+    # then
+    data = response.json()
+    assert data["status"] == "published"
+    digest_resp = client.get(f"/digest/{data['year']}/{data['week']}")
+    assert digest_resp.status_code == 200
+
+
+def test_update_status_invalid() -> None:
+    response = client.patch("/insights/1/status", json={"status": "bogus"})
+    assert response.status_code == 400
+
+
+def test_update_status_not_found() -> None:
+    response = client.patch("/insights/999/status", json={"status": "published"})
+    assert response.status_code == 404

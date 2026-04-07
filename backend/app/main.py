@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -64,9 +64,13 @@ def health() -> HealthResponse:
 
 
 @app.get("/insights", response_model=list[schemas.InsightOut], tags=["insights"])
-def list_insights(db: Session = Depends(get_db)) -> list[models.Insight]:
-    """Return all published insights, newest first."""
-    return services.list_insights(db)
+def list_insights(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+) -> list[models.Insight]:
+    """Return published insights, newest first (paginated)."""
+    return services.list_insights(db, offset=offset, limit=limit)
 
 
 @app.get("/insights/{insight_id}", response_model=schemas.InsightOut, tags=["insights"])
@@ -96,3 +100,20 @@ def generate_insight(
     Returns a draft Insight (status='draft') — publish it via the admin flow.
     """
     return services.run_pipeline(db, request.source_text)
+
+
+@app.patch(
+    "/insights/{insight_id}/status",
+    response_model=schemas.InsightOut,
+    tags=["admin"],
+)
+def update_insight_status(
+    insight_id: int,
+    request: schemas.UpdateInsightStatusRequest,
+    db: Session = Depends(get_db),
+) -> models.Insight:
+    """Transition an insight to a new status (e.g. draft → published).
+
+    When publishing, the insight is auto-assigned to its week's digest.
+    """
+    return services.update_insight_status(db, insight_id, request.status)
