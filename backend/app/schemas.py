@@ -10,8 +10,8 @@ class InsightOut(BaseModel):
     title: str
     summary: str
     reasoning: str | None = None
-    examples: str | None = None  # JSON string — frontend parses
-    perspectives: str | None = None  # JSON string — frontend parses
+    examples: list[str] | None = None
+    perspectives: dict[str, str] | None = None
     week: int
     year: int
     status: str
@@ -37,11 +37,16 @@ class GenerateInsightRequest(BaseModel):
     source_text: str
 
 
+class UpdateInsightStatusRequest(BaseModel):
+    status: str
+
+
 class AgentRunOut(BaseModel):
     id: int
     agent_name: str
     model: str | None = None
     success: bool
     error: str | None = None
+    duration_s: float | None = None
 
     model_config = {"from_attributes": True}

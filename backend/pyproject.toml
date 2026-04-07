@@ -5,8 +5,11 @@ description = "AI Hub backend — FastAPI + PostgreSQL + SQLAlchemy"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "anthropic>=0.52.0",
     "fastapi[standard]>=0.135.1",
+    "google-genai>=1.16.0",
     "openai>=2.28.0",
+    "python-dotenv>=1.1.0",
     "sqlalchemy>=2.0.48",
     "uvicorn>=0.42.0",
 ]

@@ -12,14 +12,18 @@ from sqlalchemy.orm import Session
 
 from app.models import Insight, WeeklyDigest
 
+_VALID_STATUSES = {"draft", "published", "review_failed"}
 
-def list_insights(db: Session) -> list[Insight]:
-    """Return all published insights ordered newest first."""
+
+def list_insights(db: Session, *, offset: int = 0, limit: int = 20) -> list[Insight]:
+    """Return published insights ordered newest first, with pagination."""
     return list(
         db.scalars(
             select(Insight)
             .where(Insight.status == "published")
             .order_by(Insight.year.desc(), Insight.week.desc())
+            .offset(offset)
+            .limit(limit)
         ).all()
     )
 
@@ -43,6 +47,40 @@ def get_digest(db: Session, year: int, week: int) -> WeeklyDigest:
     if not digest:
         raise HTTPException(status_code=404, detail=f"Digest for {year}/W{week:02d} not found")
     return digest
+
+
+def get_or_create_digest(db: Session, year: int, week: int) -> WeeklyDigest:
+    """Return existing digest for the given year/week or create one."""
+    digest = db.scalars(
+        select(WeeklyDigest).where(
+            WeeklyDigest.year == year,
+            WeeklyDigest.week == week,
+        )
+    ).first()
+    if not digest:
+        digest = WeeklyDigest(year=year, week=week)
+        db.add(digest)
+        db.flush()
+    return digest
+
+
+def update_insight_status(db: Session, insight_id: int, status: str) -> Insight:
+    """Transition an insight to a new status (e.g. draft → published)."""
+    if status not in _VALID_STATUSES:
+        valid = ", ".join(sorted(_VALID_STATUSES))
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid status '{status}'. Must be one of: {valid}",
+        )
+    insight = db.get(Insight, insight_id)
+    if not insight:
+        raise HTTPException(status_code=404, detail=f"Insight {insight_id} not found")
+    insight.status = status
+    if status == "published" and not insight.digest_id:
+        digest = get_or_create_digest(db, insight.year, insight.week)
+        insight.digest_id = digest.id
+    db.flush()
+    return insight
 
 
 def run_pipeline(db: Session, source_text: str) -> Insight:

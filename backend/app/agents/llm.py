@@ -1,10 +1,10 @@
 """Provider-agnostic LLM client for agent pipeline.
 
 Supported providers:
-- openai
-- anthropic
-- gemini
-- grok (xAI)
+- openai  (OpenAI SDK)
+- anthropic (Anthropic SDK)
+- gemini  (Google GenAI SDK)
+- grok    (xAI — OpenAI-compatible, uses OpenAI SDK with custom base_url)
 
 Configuration is environment-driven:
 - LLM_PROVIDER=openai|anthropic|gemini|grok
@@ -17,9 +17,7 @@ clear stub string so local development can continue without secrets.
 
 from __future__ import annotations
 
-import json
 import os
-from urllib import error, parse, request
 
 from dotenv import load_dotenv
 
@@ -51,12 +49,10 @@ def _anthropic_key() -> str:
 
 
 def _gemini_key() -> str:
-    # Support either variable name.
     return os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
 
 
 def _grok_key() -> str:
-    # Support either variable name.
     return os.getenv("XAI_API_KEY", "") or os.getenv("GROK_API_KEY", "")
 
 
@@ -74,104 +70,86 @@ def is_configured() -> bool:
     return False
 
 
-def _post_json(url: str, payload: dict, headers: dict[str, str]) -> dict:
-    data = json.dumps(payload).encode("utf-8")
-    req = request.Request(url=url, data=data, headers=headers, method="POST")
-    try:
-        with request.urlopen(req, timeout=_TIMEOUT_SECONDS) as resp:
-            body = resp.read().decode("utf-8")
-            return json.loads(body)
-    except error.HTTPError as exc:
-        body = exc.read().decode("utf-8") if exc.fp else ""
-        raise RuntimeError(f"LLM HTTP {exc.code}: {body[:500]}") from exc
-    except error.URLError as exc:
-        raise RuntimeError(f"LLM network error: {exc}") from exc
+# ---------------------------------------------------------------------------
+# Provider implementations
+# ---------------------------------------------------------------------------
 
 
 def _chat_openai(user_prompt: str, system_prompt: str) -> str:
-    base_url = os.getenv("LLM_BASE_URL") or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
-    url = f"{base_url.rstrip('/')}/chat/completions"
-    payload = {
-        "model": _model_for("openai"),
-        "messages": [
+    from openai import OpenAI
+
+    base_url = (
+        os.getenv("LLM_BASE_URL")
+        or os.getenv("OPENAI_BASE_URL")
+        or "https://api.openai.com/v1"
+    )
+    client = OpenAI(api_key=_openai_key(), base_url=base_url, timeout=_TIMEOUT_SECONDS)
+    response = client.chat.completions.create(
+        model=_model_for("openai"),
+        messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-    }
-    headers = {
-        "Authorization": f"Bearer {_openai_key()}",
-        "Content-Type": "application/json",
-    }
-    data = _post_json(url, payload, headers)
-    return data.get("choices", [{}])[0].get("message", {}).get("content", "") or ""
+    )
+    return response.choices[0].message.content or ""
 
 
 def _chat_grok(user_prompt: str, system_prompt: str) -> str:
-    # xAI is OpenAI-compatible.
-    base_url = os.getenv("LLM_BASE_URL") or os.getenv("GROK_BASE_URL") or "https://api.x.ai/v1"
-    url = f"{base_url.rstrip('/')}/chat/completions"
-    payload = {
-        "model": _model_for("grok"),
-        "messages": [
+    from openai import OpenAI
+
+    base_url = (
+        os.getenv("LLM_BASE_URL")
+        or os.getenv("GROK_BASE_URL")
+        or "https://api.x.ai/v1"
+    )
+    client = OpenAI(api_key=_grok_key(), base_url=base_url, timeout=_TIMEOUT_SECONDS)
+    response = client.chat.completions.create(
+        model=_model_for("grok"),
+        messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-    }
-    headers = {
-        "Authorization": f"Bearer {_grok_key()}",
-        "Content-Type": "application/json",
-    }
-    data = _post_json(url, payload, headers)
-    return data.get("choices", [{}])[0].get("message", {}).get("content", "") or ""
+    )
+    return response.choices[0].message.content or ""
 
 
 def _chat_anthropic(user_prompt: str, system_prompt: str) -> str:
-    url = os.getenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1/messages")
-    payload = {
-        "model": _model_for("anthropic"),
-        "max_tokens": 1024,
-        "system": system_prompt,
-        "messages": [{"role": "user", "content": user_prompt}],
-    }
-    headers = {
-        "x-api-key": _anthropic_key(),
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-    }
-    data = _post_json(url, payload, headers)
-    content = data.get("content", [])
-    if content and isinstance(content[0], dict):
-        return content[0].get("text", "") or ""
-    return ""
+    from anthropic import Anthropic
+
+    base_url = os.getenv("ANTHROPIC_BASE_URL") or None
+    client = Anthropic(
+        api_key=_anthropic_key(),
+        base_url=base_url,
+        timeout=_TIMEOUT_SECONDS,
+    )
+    response = client.messages.create(
+        model=_model_for("anthropic"),
+        max_tokens=1024,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_prompt}],
+    )
+    return response.content[0].text if response.content else ""
 
 
 def _chat_gemini(user_prompt: str, system_prompt: str) -> str:
-    model = _model_for("gemini")
-    key = _gemini_key()
-    url = (
-        os.getenv("GEMINI_BASE_URL")
-        or f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    from google import genai
+
+    client = genai.Client(api_key=_gemini_key())
+    response = client.models.generate_content(
+        model=_model_for("gemini"),
+        contents=user_prompt,
+        config=genai.types.GenerateContentConfig(
+            system_instruction=system_prompt,
+        ),
     )
-    query_sep = "&" if "?" in url else "?"
-    url = f"{url}{query_sep}key={parse.quote(key)}"
-
-    payload = {
-        "systemInstruction": {"parts": [{"text": system_prompt}]},
-        "contents": [{"parts": [{"text": user_prompt}]}],
-    }
-    headers = {"Content-Type": "application/json"}
-    data = _post_json(url, payload, headers)
-
-    candidates = data.get("candidates", [])
-    if not candidates:
-        return ""
-    parts = candidates[0].get("content", {}).get("parts", [])
-    if not parts:
-        return ""
-    return parts[0].get("text", "") or ""
+    return response.text or ""
 
 
-# noinspection PyPackageRequirements
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+
 def chat_complete(
     user_prompt: str,
     system_prompt: str = "You are a helpful AI assistant.",
