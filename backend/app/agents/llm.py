@@ -79,9 +79,7 @@ def _chat_openai(user_prompt: str, system_prompt: str) -> str:
     from openai import OpenAI
 
     base_url = (
-        os.getenv("LLM_BASE_URL")
-        or os.getenv("OPENAI_BASE_URL")
-        or "https://api.openai.com/v1"
+        os.getenv("LLM_BASE_URL") or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
     )
     client = OpenAI(api_key=_openai_key(), base_url=base_url, timeout=_TIMEOUT_SECONDS)
     response = client.chat.completions.create(
@@ -97,11 +95,7 @@ def _chat_openai(user_prompt: str, system_prompt: str) -> str:
 def _chat_grok(user_prompt: str, system_prompt: str) -> str:
     from openai import OpenAI
 
-    base_url = (
-        os.getenv("LLM_BASE_URL")
-        or os.getenv("GROK_BASE_URL")
-        or "https://api.x.ai/v1"
-    )
+    base_url = os.getenv("LLM_BASE_URL") or os.getenv("GROK_BASE_URL") or "https://api.x.ai/v1"
     client = OpenAI(api_key=_grok_key(), base_url=base_url, timeout=_TIMEOUT_SECONDS)
     response = client.chat.completions.create(
         model=_model_for("grok"),
@@ -115,6 +109,7 @@ def _chat_grok(user_prompt: str, system_prompt: str) -> str:
 
 def _chat_anthropic(user_prompt: str, system_prompt: str) -> str:
     from anthropic import Anthropic
+    from anthropic.types import TextBlock
 
     base_url = os.getenv("ANTHROPIC_BASE_URL") or None
     client = Anthropic(
@@ -128,7 +123,10 @@ def _chat_anthropic(user_prompt: str, system_prompt: str) -> str:
         system=system_prompt,
         messages=[{"role": "user", "content": user_prompt}],
     )
-    return response.content[0].text if response.content else ""
+    for block in response.content:
+        if isinstance(block, TextBlock):
+            return block.text
+    return ""
 
 
 def _chat_gemini(user_prompt: str, system_prompt: str) -> str:
