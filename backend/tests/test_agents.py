@@ -102,9 +102,19 @@ def test_review_fails_on_empty_title() -> None:
 
 def test_all_agents_run_sequentially_on_stub() -> None:
     """Smoke test: every agent runs without raising, context is fully populated."""
-    from app.agents.orchestrator import InsightOrchestrator
+    from app.agents.debate_generator import DebateGeneratorAgent
+    from app.agents.example_generator import ExampleGeneratorAgent
+    from app.agents.reasoning import ReasoningAgent
+    from app.agents.review import ReviewAgent
+    from app.agents.trend_extraction import TrendExtractionAgent
 
-    agents = InsightOrchestrator._pipeline
+    agents = [
+        TrendExtractionAgent(),
+        ReasoningAgent(),
+        ExampleGeneratorAgent(),
+        DebateGeneratorAgent(),
+        ReviewAgent(),
+    ]
     ctx = AgentContext(source_text="OpenAI released GPT-5 with improved reasoning.")
 
     for agent in agents:
