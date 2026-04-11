@@ -4,29 +4,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AI Hub is an AI-generated insight magazine platform. The backend ingests source text, runs it through a multi-agent LLM pipeline, and produces structured "insights" grouped into weekly digests.
+AIHub is an AI-driven intelligence magazine about AI. The backend is a FastAPI Python app that ingests source text, runs it through a multi-agent LLM pipeline, and produces structured "insights" grouped into weekly digests.
 
 ## Build & Development Commands
 
 All commands run from the `backend/` directory:
 
 ```bash
-uv sync --group dev          # install dependencies (creates .venv)
-cp .env.example .env         # first-time setup — edit API keys as needed
-uv run uvicorn app.main:app --reload   # dev server on :8000
-uv run python scripts/seed.py          # seed SQLite with sample data
+uv sync --group dev                    # Install all dependencies (creates .venv)
+cp .env.example .env                   # First-time setup — edit API keys as needed
+uv run uvicorn app.main:app --reload   # Dev server on http://localhost:8000
+uv run python scripts/seed.py          # Seed SQLite with sample data
 ```
 
 ### Testing & Quality
 
 ```bash
-uv run pytest                  # run all tests
-uv run pytest tests/test_health.py           # single test file
-uv run pytest -k test_get_insight_by_id      # single test by name
-uv run ruff check .            # lint
-uv run ruff format .           # format
-uv run ty check app/           # type-check
+uv run pytest                                        # Run all tests
+uv run pytest tests/test_health.py                   # Single test file
+uv run pytest tests/test_agents.py -k "test_trend"   # Single test by name
+uv run ruff check .                                  # Lint
+uv run ruff format .                                 # Auto-format
+uv run ty check app/                                 # Type check (strict)
 ```
+
+No API keys needed for local dev — agents fall back to stub mode when credentials are missing.
 
 ## Architecture
 
@@ -36,37 +38,66 @@ uv run ty check app/           # type-check
 FastAPI routes (main.py) → services.py → models.py / agents/orchestrator.py
 ```
 
-- **`main.py`** — app factory, lifespan (auto-creates tables), CORS, all route definitions
-- **`services.py`** — business logic layer; routes stay thin
-- **`db.py`** — SQLAlchemy engine, `SessionLocal`, `get_db` dependency (commits on success, rolls back on error)
-- **`models.py`** — ORM: `Source`, `Insight`, `WeeklyDigest`, `AgentRun`
-- **`schemas.py`** — Pydantic response/request models (`from_attributes = True`)
+### Backend Layers (`backend/app/`)
 
-### Agent Pipeline (supervisor pattern)
+- **main.py** — app factory, lifespan (auto-creates tables), CORS, all route definitions
+- **services.py** — business logic / query layer; routes stay thin
+- **db.py** — SQLAlchemy engine, `SessionLocal`, `get_db` dependency (commits on success, rolls back on error)
+- **models.py** — SQLAlchemy 2.0 ORM: `Source`, `Insight`, `WeeklyDigest`, `AgentRun`
+- **schemas.py** — Pydantic request/response models (`from_attributes = True` for ORM mapping)
 
-`POST /generate-insight` triggers `InsightOrchestrator.run()` which executes agents sequentially through a shared `AgentContext` dataclass:
+### Agent Pipeline (`backend/app/agents/`)
 
-```
-TrendExtractionAgent → ReasoningAgent → ExampleGeneratorAgent
-    → DebateGeneratorAgent → ReviewAgent → persist Insight (status=draft)
-```
+`POST /generate-insight` triggers `InsightOrchestrator.run()`, which executes agents sequentially through a shared `AgentContext` dataclass:
 
-Each agent:
-- Extends `BaseAgent` (`agents/base.py`), implements `run(context) -> AgentResult`
-- Reads from and mutates the shared `AgentContext`
-- Falls back to realistic stub data when LLM credentials are missing (no API key needed for dev/test)
-- Every run is logged to the `agent_runs` table
+1. **TrendExtractionAgent** — Extracts title + summary from source text
+2. **ReasoningAgent** — Writes analysis of why it matters
+3. **ExampleGeneratorAgent** — Generates 3 practical use cases
+4. **DebateGeneratorAgent** — Generates 4 AI ecosystem perspectives
+5. **ReviewAgent** — Quality gate (structural checks + LLM review)
+
+Key abstractions:
+- `BaseAgent` in `agents/base.py` with `run(context: AgentContext) -> AgentResult`
+- Agents mutate the shared `AgentContext` in-place; downstream agents build on prior results
+- `AgentResult` is JSON-serializable with success flag + error message; every run is logged to the `agent_runs` table
+- Non-fatal agent failures don't stop the pipeline (orchestrator catches exceptions per-agent)
+- Insight is persisted with `status='draft'` when review passes, `'review_failed'` otherwise
 
 ### LLM Integration
 
-`agents/llm.py` provides `chat_complete()` — a provider-agnostic wrapper using official SDKs (OpenAI for OpenAI+Grok, Anthropic, Google GenAI). Configured via env vars (`LLM_PROVIDER`, `LLM_MODEL`, provider API keys). SDKs are lazily imported inside each provider function.
+`agents/llm.py` provides `chat_complete()` — a provider-agnostic wrapper using official SDKs (OpenAI SDK for OpenAI and Grok, Anthropic, Google GenAI). SDKs are lazily imported inside each provider function. Configured via env vars (`LLM_PROVIDER`, `LLM_MODEL`, provider API keys). When credentials are missing, returns a stub marker string so local dev/tests continue without secrets.
 
 ### Database
 
 SQLite by default (`aihub.db`); swap to PostgreSQL by changing `DATABASE_URL` in `.env`. Tables auto-created on startup via `Base.metadata.create_all` (no Alembic yet).
 
-### Testing Patterns
+### Testing (`backend/tests/`)
 
-- Tests use an in-memory SQLite with `StaticPool` and FastAPI dependency overrides (`app.dependency_overrides[get_db]`)
-- Agent tests run without API keys using the built-in stub mode
+- Endpoint tests use in-memory SQLite with `StaticPool` and FastAPI `app.dependency_overrides[get_db]` (see `test_insights.py`)
 - `reset_db` fixture recreates schema and seeds minimal data before each test
+- Agent tests run in stub mode (no API keys) via direct agent calls
+- `TestClient` for endpoint tests, direct agent calls for unit tests
+
+## Configuration
+
+Environment variables (see `backend/.env.example`):
+- `DATABASE_URL` — Default `sqlite:///./aihub.db`
+- `LLM_PROVIDER` — `openai|anthropic|gemini|grok`
+- `LLM_MODEL` — Provider-specific model name
+- Provider API keys: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `XAI_API_KEY`
+
+## Code Conventions
+
+- Python 3.12, managed with `uv`
+- Ruff: 100-char line length, PEP 8
+- SQLAlchemy 2.0 `mapped_column` + `select()` style (not legacy Query API)
+- FastAPI dependency injection via `Depends(get_db)`
+
+## Frontend (Planned)
+
+SvelteKit + TypeScript + Tailwind CSS, not yet implemented. Setup guide in `docs/ai_hub_frontend_setup_simple.md`.
+
+## Documentation
+
+- `AGENTS.md` — MVP architecture overview and constraints
+- `docs/backlog/` — Story backlog with acceptance criteria
