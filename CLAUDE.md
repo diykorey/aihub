@@ -6,6 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 AIHub is an AI-driven intelligence magazine about AI. The backend is a FastAPI Python app that ingests source text, runs it through a multi-agent LLM pipeline, and produces structured "insights" grouped into weekly digests.
 
+End-to-end flow: source signals → agent pipeline → structured insights → REST API → SvelteKit pages.
+
+## Repository Reality
+
+- `backend/` is implemented (FastAPI app, SQLAlchemy models, agents, tests).
+- `frontend/` is not yet present — treat it as planned work.
+- Treat runtime behavior in `backend/app/` and `backend/tests/` as source of truth; use `docs/` for MVP scope/roadmap.
+- `docs/backlog/ai_hub_startup_backlog.md` defines MVP story order and acceptance criteria — prefer that over inventing scope.
+
 ## Build & Development Commands
 
 All commands run from the `backend/` directory:
@@ -13,7 +22,7 @@ All commands run from the `backend/` directory:
 ```bash
 uv sync --group dev                    # Install all dependencies (creates .venv)
 cp .env.example .env                   # First-time setup — edit API keys as needed
-uv run uvicorn app.main:app --reload   # Dev server on http://localhost:8000
+uv run uvicorn app.main:app --reload   # Dev server on http://localhost:8000 (verify /docs + /health)
 uv run python scripts/seed.py          # Seed SQLite with sample data
 ```
 
@@ -38,6 +47,8 @@ No API keys needed for local dev — agents fall back to stub mode when credenti
 FastAPI routes (main.py) → services.py → models.py / agents/orchestrator.py
 ```
 
+Keep service boundaries simple: thin routes, logic in `services.py`.
+
 ### Backend Layers (`backend/app/`)
 
 - **main.py** — app factory, lifespan (auto-creates tables), CORS, all route definitions
@@ -45,6 +56,15 @@ FastAPI routes (main.py) → services.py → models.py / agents/orchestrator.py
 - **db.py** — SQLAlchemy engine, `SessionLocal`, `get_db` dependency (commits on success, rolls back on error)
 - **models.py** — SQLAlchemy 2.0 ORM: `Source`, `Insight`, `WeeklyDigest`, `AgentRun`
 - **schemas.py** — Pydantic request/response models (`from_attributes = True` for ORM mapping)
+
+### REST Endpoints
+
+- `GET /health` — liveness
+- `GET /insights` — paginated list
+- `GET /insights/{id}` — single insight
+- `GET /digest/{year}/{week}` — weekly digest with insights
+- `POST /generate-insight` — admin: runs the orchestrator pipeline on provided source text, returns a draft insight
+- `PATCH /insights/{id}/status` — admin: transition status (e.g. draft → published; auto-assigns to week's digest)
 
 ### Agent Pipeline (`backend/app/agents/`)
 
@@ -62,6 +82,7 @@ Key abstractions:
 - `AgentResult` is JSON-serializable with success flag + error message; every run is logged to the `agent_runs` table
 - Non-fatal agent failures don't stop the pipeline (orchestrator catches exceptions per-agent)
 - Insight is persisted with `status='draft'` when review passes, `'review_failed'` otherwise
+- Agents fall back to stub outputs when LLM credentials are not configured
 
 ### LLM Integration
 
@@ -95,9 +116,33 @@ Environment variables (see `backend/.env.example`):
 
 ## Frontend (Planned)
 
-SvelteKit + TypeScript + Tailwind CSS, not yet implemented. Setup guide in `docs/ai_hub_frontend_setup_simple.md`.
+Not yet implemented. Planned stack and conventions (from `docs/ai_hub_frontend_setup_simple.md`):
+
+- **Stack:** SvelteKit + TypeScript + Tailwind CSS, package manager `pnpm`
+- **Minimal libs:** `lucide-svelte`, `date-fns`
+- **Routing:** `/`, `/insights/[id]`, `/digest/[year]/[week]`
+- **API layer:** `src/lib/api/client.ts` with tiny wrappers (`insights.ts`, `digests.ts`)
+- **Components:** build small and focused first (`InsightCard`, `ReasoningBlock`, `SourcesBlock`, `DebateBlock`)
+- **Mocks:** use `src/lib/mocks` before the backend is wired up, then replace with API calls
+- **Local run:** `pnpm install` then `pnpm dev`
+
+Frontend depends first on the `/insights`, `/insights/{id}`, and `/digest/{year}/{week}` contracts.
+
+## Implementation Sequencing
+
+Backlog implementation order (see `docs/backlog/ai_hub_dev_tickets.md`):
+
+1. Backend core
+2. Frontend foundation
+3. Agents
+4. Source ingestion
+5. Admin / monitoring
+
+Post-MVP items (forecasting, broader ops) are documented but should not block MVP delivery.
 
 ## Documentation
 
-- `AGENTS.md` — MVP architecture overview and constraints
-- `docs/backlog/` — Story backlog with acceptance criteria
+- `docs/ai_hub_backend_setup_simple.md` — backend MVP setup guide
+- `docs/ai_hub_frontend_setup_simple.md` — frontend MVP setup guide
+- `docs/ai_hub_mindmap_improved.md` — product intent / mindmap
+- `docs/backlog/` — story backlog with acceptance criteria
