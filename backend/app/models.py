@@ -31,6 +31,7 @@ class Source(Base):
     source_type: Mapped[str] = mapped_column(String(50))  # e.g. "github", "blog", "paper"
     provider: Mapped[str] = mapped_column(String(100))
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    trust_score: Mapped[float] = mapped_column(Float, default=0.5)
 
 
 class Insight(Base):
