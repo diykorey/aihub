@@ -10,11 +10,13 @@ from datetime import UTC, datetime
 from sqlalchemy import (
     JSON,
     Boolean,
+    Column,
     DateTime,
     Float,
     ForeignKey,
     Integer,
     String,
+    Table,
     Text,
     UniqueConstraint,
 )
@@ -32,6 +34,25 @@ class Source(Base):
     provider: Mapped[str] = mapped_column(String(100))
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     trust_score: Mapped[float] = mapped_column(Float, default=0.5)
+
+
+insight_tags = Table(
+    "insight_tags",
+    Base.metadata,
+    Column("insight_id", Integer, ForeignKey("insights.id"), primary_key=True),
+    Column("tag_id", Integer, ForeignKey("tags.id"), primary_key=True),
+)
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+
+    insights: Mapped[list[Insight]] = relationship(
+        "Insight", secondary=insight_tags, back_populates="tags"
+    )
 
 
 class Insight(Base):
@@ -56,6 +77,7 @@ class Insight(Base):
     )
     digest: Mapped[WeeklyDigest | None] = relationship("WeeklyDigest", back_populates="insights")
     agent_runs: Mapped[list[AgentRun]] = relationship("AgentRun", back_populates="insight")
+    tags: Mapped[list[Tag]] = relationship("Tag", secondary=insight_tags, back_populates="insights")
 
 
 class WeeklyDigest(Base):
