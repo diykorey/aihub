@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Insight, WeeklyDigest
+from app.models import Insight, Tag, WeeklyDigest
 
 _VALID_STATUSES = {"draft", "published", "review_failed"}
 
@@ -81,6 +81,11 @@ def update_insight_status(db: Session, insight_id: int, status: str) -> Insight:
         insight.digest_id = digest.id
     db.flush()
     return insight
+
+
+def list_tags(db: Session) -> list[Tag]:
+    """Return all tags ordered alphabetically."""
+    return list(db.scalars(select(Tag).order_by(Tag.name)).all())
 
 
 def run_pipeline(db: Session, source_text: str) -> Insight:

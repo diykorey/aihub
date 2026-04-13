@@ -105,3 +105,54 @@ def test_tag_name_is_unique() -> None:
         db.rollback()
     finally:
         db.close()
+
+
+# ---------------------------------------------------------------------------
+# GET /tags
+# ---------------------------------------------------------------------------
+
+
+def test_list_tags_empty() -> None:
+    # when
+    response = client.get("/tags")
+
+    # then
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_list_tags_returns_all() -> None:
+    # given
+    db = _TestingSessionLocal()
+    try:
+        db.add_all([Tag(name="LLM"), Tag(name="Robotics"), Tag(name="Ethics")])
+        db.commit()
+    finally:
+        db.close()
+
+    # when
+    response = client.get("/tags")
+
+    # then
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 3
+    names = [t["name"] for t in data]
+    assert names == ["Ethics", "LLM", "Robotics"]  # alphabetical order
+
+
+def test_list_tags_shape() -> None:
+    # given
+    db = _TestingSessionLocal()
+    try:
+        db.add(Tag(name="Vision"))
+        db.commit()
+    finally:
+        db.close()
+
+    # when
+    response = client.get("/tags")
+
+    # then
+    item = response.json()[0]
+    assert set(item.keys()) == {"id", "name"}

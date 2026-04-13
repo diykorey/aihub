@@ -85,6 +85,12 @@ def get_digest(year: int, week: int, db: Session = Depends(get_db)) -> models.We
     return services.get_digest(db, year, week)
 
 
+@app.get("/tags", response_model=list[schemas.TagOut], tags=["tags"])
+def list_tags(db: Session = Depends(get_db)) -> list[models.Tag]:
+    """Return all tags, alphabetically."""
+    return services.list_tags(db)
+
+
 @app.post(
     "/generate-insight",
     response_model=schemas.InsightOut,
