@@ -35,6 +35,13 @@ class TagOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PlayerOut(BaseModel):
+    id: int
+    name: str
+
+    model_config = {"from_attributes": True}
+
+
 # ---------------------------------------------------------------------------
 # Agent pipeline
 # ---------------------------------------------------------------------------
