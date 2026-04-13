@@ -37,8 +37,6 @@ def override_get_db():
         db.close()
 
 
-app.dependency_overrides[get_db] = override_get_db
-
 client = TestClient(app)
 
 
@@ -50,6 +48,7 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def reset_db():
     """Recreate schema and seed minimal data before each test."""
+    app.dependency_overrides[get_db] = override_get_db
     Base.metadata.drop_all(bind=_engine)
     Base.metadata.create_all(bind=_engine)
 
@@ -92,6 +91,7 @@ def reset_db():
     db.commit()
     db.close()
     yield
+    app.dependency_overrides.pop(get_db, None)
 
 
 # ---------------------------------------------------------------------------

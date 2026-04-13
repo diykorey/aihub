@@ -1,6 +1,7 @@
-"""SQLAlchemy ORM models — Story 3 + agent logging.
+"""SQLAlchemy ORM models.
 
-Tables: sources, insights, weekly_digests, agent_runs.
+Tables: sources, tags, insight_tags, players, insight_players,
+        insights, weekly_digests, agent_runs.
 """
 
 from __future__ import annotations
@@ -10,11 +11,13 @@ from datetime import UTC, datetime
 from sqlalchemy import (
     JSON,
     Boolean,
+    Column,
     DateTime,
     Float,
     ForeignKey,
     Integer,
     String,
+    Table,
     Text,
     UniqueConstraint,
 )
@@ -31,6 +34,45 @@ class Source(Base):
     source_type: Mapped[str] = mapped_column(String(50))  # e.g. "github", "blog", "paper"
     provider: Mapped[str] = mapped_column(String(100))
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    trust_score: Mapped[float] = mapped_column(Float, default=0.5)
+
+
+insight_tags = Table(
+    "insight_tags",
+    Base.metadata,
+    Column("insight_id", Integer, ForeignKey("insights.id"), primary_key=True),
+    Column("tag_id", Integer, ForeignKey("tags.id"), primary_key=True),
+)
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+
+    insights: Mapped[list[Insight]] = relationship(
+        "Insight", secondary=insight_tags, back_populates="tags"
+    )
+
+
+insight_players = Table(
+    "insight_players",
+    Base.metadata,
+    Column("insight_id", Integer, ForeignKey("insights.id"), primary_key=True),
+    Column("player_id", Integer, ForeignKey("players.id"), primary_key=True),
+)
+
+
+class Player(Base):
+    __tablename__ = "players"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+
+    insights: Mapped[list[Insight]] = relationship(
+        "Insight", secondary=insight_players, back_populates="players"
+    )
 
 
 class Insight(Base):
@@ -55,6 +97,10 @@ class Insight(Base):
     )
     digest: Mapped[WeeklyDigest | None] = relationship("WeeklyDigest", back_populates="insights")
     agent_runs: Mapped[list[AgentRun]] = relationship("AgentRun", back_populates="insight")
+    tags: Mapped[list[Tag]] = relationship("Tag", secondary=insight_tags, back_populates="insights")
+    players: Mapped[list[Player]] = relationship(
+        "Player", secondary=insight_players, back_populates="insights"
+    )
 
 
 class WeeklyDigest(Base):
