@@ -1,6 +1,7 @@
-"""SQLAlchemy ORM models — Story 3 + agent logging.
+"""SQLAlchemy ORM models.
 
-Tables: sources, insights, weekly_digests, agent_runs.
+Tables: sources, tags, insight_tags, players, insight_players,
+        insights, weekly_digests, agent_runs.
 """
 
 from __future__ import annotations
