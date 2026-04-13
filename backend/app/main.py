@@ -91,6 +91,12 @@ def list_tags(db: Session = Depends(get_db)) -> list[models.Tag]:
     return services.list_tags(db)
 
 
+@app.get("/players", response_model=list[schemas.PlayerOut], tags=["players"])
+def list_players(db: Session = Depends(get_db)) -> list[models.Player]:
+    """Return all players, alphabetically."""
+    return services.list_players(db)
+
+
 @app.post(
     "/generate-insight",
     response_model=schemas.InsightOut,

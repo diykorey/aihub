@@ -106,3 +106,54 @@ def test_player_name_is_unique() -> None:
         db.rollback()
     finally:
         db.close()
+
+
+# ---------------------------------------------------------------------------
+# GET /players
+# ---------------------------------------------------------------------------
+
+
+def test_list_players_empty() -> None:
+    # when
+    response = client.get("/players")
+
+    # then
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_list_players_returns_all() -> None:
+    # given
+    db = _TestingSessionLocal()
+    try:
+        db.add_all([Player(name="OpenAI"), Player(name="Anthropic"), Player(name="Google")])
+        db.commit()
+    finally:
+        db.close()
+
+    # when
+    response = client.get("/players")
+
+    # then
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 3
+    names = [p["name"] for p in data]
+    assert names == ["Anthropic", "Google", "OpenAI"]  # alphabetical order
+
+
+def test_list_players_shape() -> None:
+    # given
+    db = _TestingSessionLocal()
+    try:
+        db.add(Player(name="xAI"))
+        db.commit()
+    finally:
+        db.close()
+
+    # when
+    response = client.get("/players")
+
+    # then
+    item = response.json()[0]
+    assert set(item.keys()) == {"id", "name"}
