@@ -55,6 +55,25 @@ class Tag(Base):
     )
 
 
+insight_players = Table(
+    "insight_players",
+    Base.metadata,
+    Column("insight_id", Integer, ForeignKey("insights.id"), primary_key=True),
+    Column("player_id", Integer, ForeignKey("players.id"), primary_key=True),
+)
+
+
+class Player(Base):
+    __tablename__ = "players"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+
+    insights: Mapped[list[Insight]] = relationship(
+        "Insight", secondary=insight_players, back_populates="players"
+    )
+
+
 class Insight(Base):
     __tablename__ = "insights"
 
@@ -78,6 +97,9 @@ class Insight(Base):
     digest: Mapped[WeeklyDigest | None] = relationship("WeeklyDigest", back_populates="insights")
     agent_runs: Mapped[list[AgentRun]] = relationship("AgentRun", back_populates="insight")
     tags: Mapped[list[Tag]] = relationship("Tag", secondary=insight_tags, back_populates="insights")
+    players: Mapped[list[Player]] = relationship(
+        "Player", secondary=insight_players, back_populates="insights"
+    )
 
 
 class WeeklyDigest(Base):
