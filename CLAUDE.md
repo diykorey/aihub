@@ -54,7 +54,7 @@ Keep service boundaries simple: thin routes, logic in `services.py`.
 - **main.py** — app factory, lifespan (auto-creates tables), CORS, all route definitions
 - **services.py** — business logic / query layer; routes stay thin
 - **db.py** — SQLAlchemy engine, `SessionLocal`, `get_db` dependency (commits on success, rolls back on error)
-- **models.py** — SQLAlchemy 2.0 ORM: `Source`, `Insight`, `WeeklyDigest`, `AgentRun`
+- **models.py** — SQLAlchemy 2.0 ORM: `User`, `Source`, `Tag`, `Player`, `Insight`, `WeeklyDigest`, `AgentRun`
 - **schemas.py** — Pydantic request/response models (`from_attributes = True` for ORM mapping)
 
 ### REST Endpoints
