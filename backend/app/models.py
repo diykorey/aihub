@@ -1,6 +1,6 @@
 """SQLAlchemy ORM models.
 
-Tables: sources, tags, insight_tags, players, insight_players,
+Tables: users, sources, tags, insight_tags, players, insight_players,
         insights, weekly_digests, agent_runs.
 """
 
@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     Float,
@@ -24,6 +25,34 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
+
+# Valid User roles — controls what actions a user is allowed to perform.
+USER_ROLES = ("reader", "subscriber", "admin")
+
+
+class User(Base):
+    """A registered user — its ``role`` gates permitted actions (Ticket 3a).
+
+    Roles:
+        reader     — default; can browse published content.
+        subscriber — paying user; unlocks subscriber features.
+        admin      — can manage insights and run the agent pipeline.
+    """
+
+    __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ('reader', 'subscriber', 'admin')",
+            name="ck_users_role",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
+    name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    role: Mapped[str] = mapped_column(String(20), default="reader", index=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(tz=UTC))
 
 
 class Source(Base):

@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.db import Base, SessionLocal, engine
-from app.models import Insight, Source, WeeklyDigest
+from app.models import Insight, Source, User, WeeklyDigest
 
 
 def seed() -> None:
@@ -24,6 +24,14 @@ def seed() -> None:
         if db.query(Insight).count() > 0:
             print("Database already seeded — skipping.")
             return
+
+        # --- Users --------------------------------------------------------
+        users = [
+            User(email="admin@aihub.dev", name="Admin", role="admin"),
+            User(email="subscriber@aihub.dev", name="Sam Subscriber", role="subscriber"),
+            User(email="reader@aihub.dev", name="Rory Reader", role="reader"),
+        ]
+        db.add_all(users)
 
         # --- Weekly digest ------------------------------------------------
         digest = WeeklyDigest(year=2026, week=11)
@@ -100,7 +108,10 @@ def seed() -> None:
         db.add_all(sources)
 
         db.commit()
-        print(f"Seeded {len(insights)} insights, 1 digest, {len(sources)} sources.")
+        print(
+            f"Seeded {len(users)} users, {len(insights)} insights, "
+            f"1 digest, {len(sources)} sources."
+        )
 
     except Exception:
         db.rollback()
