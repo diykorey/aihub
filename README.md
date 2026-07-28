@@ -6,7 +6,11 @@ AI-powered insight magazine platform that ingests source material, runs it throu
 
 ```
 backend/    FastAPI backend — API, agent pipeline, data layer
+docs/       Documentation — overview, guides, phases, glossary, backlog (start at docs/README.md)
+wiki/       GitHub wiki mirror of docs/
 ```
+
+Full documentation lives in [docs/](docs/README.md).
 
 ## Quick start
 

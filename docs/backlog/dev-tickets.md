@@ -4,7 +4,7 @@ Derived from Product Epics
 
 This document converts the feature epics into **concrete development tickets** suitable for Jira, Linear, or GitHub Issues.
 
-Tickets are grouped by **Epic** matching `ai_hub_features_epics.md`.
+Tickets are grouped by **Epic** matching [`epics.md`](epics.md).
 
 The list is optimized for **fast AI-assisted development** and incremental delivery.
 

@@ -13,7 +13,7 @@ End-to-end flow: source signals → agent pipeline → structured insights → R
 - `backend/` is implemented (FastAPI app, SQLAlchemy models, agents, tests).
 - `frontend/` is not yet present — treat it as planned work.
 - Treat runtime behavior in `backend/app/` and `backend/tests/` as source of truth; use `docs/` for MVP scope/roadmap.
-- `docs/backlog/ai_hub_startup_backlog.md` defines MVP story order and acceptance criteria — prefer that over inventing scope.
+- `docs/backlog/startup-backlog.md` defines MVP story order and acceptance criteria — prefer that over inventing scope.
 
 ## Build & Development Commands
 
@@ -116,7 +116,7 @@ Environment variables (see `backend/.env.example`):
 
 ## Frontend (Planned)
 
-Not yet implemented. Planned stack and conventions (from `docs/ai_hub_frontend_setup_simple.md`):
+Not yet implemented. Planned stack and conventions (from `docs/guides/frontend-setup.md`):
 
 - **Stack:** SvelteKit + TypeScript + Tailwind CSS, package manager `pnpm`
 - **Minimal libs:** `lucide-svelte`, `date-fns`
@@ -130,7 +130,7 @@ Frontend depends first on the `/insights`, `/insights/{id}`, and `/digest/{year}
 
 ## Implementation Sequencing
 
-Backlog implementation order (see `docs/backlog/ai_hub_dev_tickets.md`):
+Backlog implementation order (see `docs/backlog/dev-tickets.md`):
 
 1. Backend core
 2. Frontend foundation
@@ -142,7 +142,14 @@ Post-MVP items (forecasting, broader ops) are documented but should not block MV
 
 ## Documentation
 
-- `docs/ai_hub_backend_setup_simple.md` — backend MVP setup guide
-- `docs/ai_hub_frontend_setup_simple.md` — frontend MVP setup guide
-- `docs/ai_hub_mindmap_improved.md` — product intent / mindmap
-- `docs/backlog/` — story backlog with acceptance criteria
+Start at `docs/README.md` — the documentation index. Key articles:
+
+- `docs/overview.md` — project overview, architecture, and phase roadmap
+- `docs/glossary.md` — domain, agent-pipeline, and tooling term definitions
+- `docs/guides/backend-setup.md` — backend MVP setup guide
+- `docs/guides/frontend-setup.md` — frontend MVP setup guide
+- `docs/product/mindmap.md` — product intent / mindmap
+- `docs/phases/` — per-phase implementation records (e.g. `phase-1-backend-core.md`)
+- `docs/backlog/` — story backlog with acceptance criteria (`epics.md`, `dev-tickets.md`, `startup-backlog.md`)
+
+The `wiki/` folder mirrors `docs/` for publishing to the GitHub wiki.
